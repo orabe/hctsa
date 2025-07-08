@@ -64,63 +64,87 @@ fid = fopen(log_file, 'w');
 fprintf(fid, '=== HCTSA Analysis Log Started: %s ===\n', TIMESTAMP_READABLE);
 fclose(fid);
 
-% Function to log messages both to terminal and file
-logAndPrint = @(msg) logAndPrintToFile(log_file, msg);
-
-% Simple function to log messages (file only)
-logToFile = @(msg) writeToLogFile(log_file, msg);
-
-% Function to save and close current figure
-saveFigure = @(png_path, description) saveAndCloseFigure(png_path, description);
-
-logAndPrint('=== HCTSA Analysis Pipeline ===');
-logAndPrint(sprintf('HCTSA Analysis Pipeline Started: %s', TIMESTAMP_READABLE));
-logAndPrint('Created results structure:');
-logAndPrint(sprintf('  %s/', RESULTS_FOLDER));
-logAndPrint('    logs/');
-logAndPrint(sprintf('    analyzed_txt/%s/', TIMESTAMP));
-logAndPrint(sprintf('    csv_files/%s/', TIMESTAMP));
-logAndPrint(sprintf('    figures/%s/', TIMESTAMP));
-saveFigure = @(png_path, description) saveAndCloseFigure(png_path, description);
+fprintf('=== HCTSA Analysis Pipeline ===\n');
+fprintf('HCTSA Analysis Pipeline Started: %s\n', TIMESTAMP_READABLE);
+fprintf('Created results structure:\n');
+fprintf('  %s/\n', RESULTS_FOLDER);
+fprintf('    logs/\n');
+fprintf('    analyzed_txt/%s/\n', TIMESTAMP);
+fprintf('    csv_files/%s/\n', TIMESTAMP);
+fprintf('    figures/%s/\n', TIMESTAMP);
 
 
 %% STEP1: Load HCTSA Data
 [TS_DataMat_raw, TimeSeries, Operations] = TS_LoadData(HCTSA_FILENAME);
-msg = sprintf('Dataset loaded: %d time series × %d features', height(TimeSeries), height(Operations));
-logAndPrint(msg);
+MasterOperations = TS_GetFromData(HCTSA_FILENAME, 'MasterOperations');
+fprintf('STEP1: Dataset loaded: %d time series × %d features\n', height(TimeSeries), height(Operations));
+
+% Export raw data tables immediately after loading
+data_output_dir = fullfile('data', 'hctsa_output_data');
+if ~exist(data_output_dir, 'dir')
+    mkdir(data_output_dir);
+end
+
+% Export the raw data tables (overwrites existing files)
+writetable(TimeSeries, fullfile(data_output_dir, 'TimeSeries.csv'));
+writetable(Operations, fullfile(data_output_dir, 'Operations.csv'));
+writetable(MasterOperations, fullfile(data_output_dir, 'MasterOperations.csv'));
+fprintf('STEP1: Raw data tables exported to: %s\n', data_output_dir);
+
+fprintf('-----------------------------\n');
 
 %% STEP2: Quality Inspection
 TS_InspectQuality('summary', HCTSA_FILENAME);
 TS_InspectQuality('master', HCTSA_FILENAME);
 TS_InspectQuality('reduced', HCTSA_FILENAME);
 TS_InspectQuality('full', HCTSA_FILENAME);
+fprintf('STEP2: Quality inspection completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP3: Group Labeling
 TS_LabelGroups(HCTSA_FILENAME, GROUP_KEYWORDS);
+fprintf('STEP3: Group labeling completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP4: Data Normalization
 outputFileName = TS_Normalize(NORM_METHOD, FILTER_THRESHOLD, HCTSA_FILENAME, CLASS_VAR_FILTER);
-msg = sprintf('Data normalized and saved to: %s', outputFileName);
-logAndPrint(msg);
+fprintf('STEP4: Data normalized and saved to: %s\n', outputFileName);
+
+% Export key data tables immediately after normalization
+[TS_DataMat_norm, TimeSeries_norm, Operations_norm] = TS_LoadData(outputFileName);
+MasterOperations_norm = TS_GetFromData(outputFileName, 'MasterOperations');
+
+% Create data output directory
+data_output_dir = fullfile('data', 'hctsa_output_data');
+if ~exist(data_output_dir, 'dir')
+    mkdir(data_output_dir);
+end
+
+% Export the data tables (overwrites existing files)
+writetable(TimeSeries_norm, fullfile(data_output_dir, 'TimeSeries_N.csv'));
+writetable(Operations_norm, fullfile(data_output_dir, 'Operations_N.csv'));
+writetable(MasterOperations_norm, fullfile(data_output_dir, 'MasterOperations_N.csv'));
+fprintf('STEP4: Key data tables exported to: %s\n', data_output_dir);
+
+fprintf('-----------------------------\n');
 
 %% STEP5: Time Series and Data Matrix Visualization
 TS_PlotTimeSeries('norm');
 % Save time series plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('timeseries_plot_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Time series plot saved: %s', png_file));
 
 TS_PlotDataMatrix('whatData', outputFileName, 'addTimeSeries', 1);
 % Save data matrix plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('datamatrix_plot_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Data matrix plot saved: %s', png_file));
 
 TS_PlotDataMatrix('whatData', outputFileName, 'addTimeSeries', 1, 'colorGroups', 1);
 % Save colored data matrix plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('datamatrix_colored_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Colored data matrix plot saved: %s', png_file));
+fprintf('STEP5: Visualization plots completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP6: Clustering Analysis
 TS_Cluster('euclidean', 'average', 'corr_fast', 'average');
@@ -129,26 +153,26 @@ TS_PlotDataMatrix('whatData', outputFileName, 'addTimeSeries', 1);
 % Save clustered data matrix plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('clustered_datamatrix_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Clustered data matrix plot saved: %s', png_file));
 
 TS_PlotDataMatrix('whatData', outputFileName, 'addTimeSeries', 1, 'colorGroups', 1);
 % Save clustered colored data matrix plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('clustered_datamatrix_colored_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Clustered colored data matrix plot saved: %s', png_file));
+fprintf('STEP6: Clustering analysis completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP7: Low-Dimensional Visualizations
 TS_PlotLowDim(outputFileName, 'pca');
 % Save PCA plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('pca_plot_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('PCA plot saved: %s', png_file));
 
 TS_PlotLowDim('norm', 'tsne');
 % Save t-SNE plot
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('tsne_plot_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('t-SNE plot saved: %s', png_file));
+fprintf('STEP7: Low-dimensional visualizations completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP8: Similarity Search Analysis
 [~, TimeSeries_norm, Operations_norm] = TS_LoadData(outputFileName);
@@ -158,14 +182,14 @@ TS_SimSearch('targetId', TimeSeries_norm.ID(1), 'whatPlots', {'matrix', 'scatter
 % Save time series similarity search plots
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('ts_similarity_search_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Time series similarity search plot saved: %s', png_file));
 
 TS_SimSearch('targetId', Operations_norm.ID(1), 'whatPlots', {'matrix', 'scatter'}, ...
            'tsOrOps', 'ops', 'numNeighbors', min(100, height(Operations_norm)));
 % Save operations similarity search plots
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('ops_similarity_search_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Operations similarity search plot saved: %s', png_file));
+fprintf('STEP8: Similarity search analysis completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP9: Individual Feature Analysis
 for i = 1:min(3, height(Operations_norm))
@@ -173,8 +197,9 @@ for i = 1:min(3, height(Operations_norm))
     % Save individual feature plot
     png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('single_feature_%d_%s.png', Operations_norm.ID(i), TIMESTAMP));
     print(png_file, '-dpng', '-r300');
-    logAndPrint(sprintf('Single feature plot %d saved: %s', Operations_norm.ID(i), png_file));
 end
+fprintf('STEP9: Individual feature analysis completed\n');
+fprintf('-----------------------------\n');
 
 %% STEP10: Classification Analysis
 cfnParams = GiveMeDefaultClassificationParams(outputFileName);
@@ -182,26 +207,22 @@ cfnParams = GiveMeDefaultClassificationParams(outputFileName);
 % Save classification plots
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('classification_results_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Classification results plot saved: %s', png_file));
 
 TS_CompareFeatureSets();
 % Save feature sets comparison
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('feature_sets_comparison_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Feature sets comparison plot saved: %s', png_file));
 
-TS_ClassifyLowDim(outputFileName, cfnParams, 5);
+TS_ClassifyLowDim(outputFileName, cfnParams, 5, false);  % Stop after 5 PCs, don't search for perfect accuracy
 % Save low-dimensional classification
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('classification_lowdim_%s.png', TIMESTAMP));
 print(png_file, '-dpng', '-r300');
-logAndPrint(sprintf('Low-dimensional classification plot saved: %s', png_file));
 
-msg = sprintf('Classification accuracy: %.2f%%', meanAcc*100);
-logAndPrint(msg);
-logToFile(msg);
+fprintf('STEP10: Classification accuracy: %.2f%%\n', meanAcc*100);
+fprintf('-----------------------------\n');
 
 %% STEP11: Top Features Analysis
-logAndPrint('Running top features analysis...');
+fprintf('STEP11: Running top features analysis...\n');
 try
     TS_TopFeatures(outputFileName, 'classification', cfnParams, ...
                   'whatPlots', {'histogram', 'distributions', 'cluster','datamatrix'}, ...
@@ -209,33 +230,31 @@ try
     % Save top features plots
     png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('top_features_official_%s.png', TIMESTAMP));
     print(png_file, '-dpng', '-r300');
-    logAndPrint(sprintf('Official top features plot saved: %s', png_file));
-    logAndPrint('TS_TopFeatures completed successfully');
+    fprintf('STEP11: TS_TopFeatures completed successfully\n');
 catch ME
-    logAndPrint(sprintf('TS_TopFeatures failed: %s', ME.message));
-    logAndPrint('Running manual top features analysis...');
+    fprintf('STEP11: TS_TopFeatures failed: %s\n', ME.message);
+    fprintf('STEP11: Running manual top features analysis...\n');
     manualTopFeatures(outputFileName, cfnParams, NUM_TOP_FEATURES, TXT_TIMESTAMP_FOLDER, FIGURES_TIMESTAMP_FOLDER, TIMESTAMP);
 end
+fprintf('-----------------------------\n');
 
 %% STEP12: Data Export
 % Export to CSV with timestamps in structured folders
 raw_csv_file = fullfile(CSV_TIMESTAMP_FOLDER, sprintf('HCTSA_raw_%s.csv', TIMESTAMP));
 norm_csv_file = fullfile(CSV_TIMESTAMP_FOLDER, sprintf('HCTSA_normalized_%s.csv', TIMESTAMP));
 
-logAndPrint('Exporting data directly to timestamped CSV files...');
+fprintf('STEP12: Exporting data to CSV files...\n');
 
 % Export raw data directly to timestamped CSV file
 [TS_DataMat_raw, TimeSeries_raw, Operations_raw] = TS_LoadData(HCTSA_FILENAME);
 writetable([TimeSeries_raw, array2table(TS_DataMat_raw)], raw_csv_file);
-logAndPrint(sprintf('Raw data CSV saved to: %s', raw_csv_file));
 
 % Export normalized data directly to timestamped CSV file
 [TS_DataMat_norm, TimeSeries_norm, Operations_norm] = TS_LoadData(outputFileName);
 writetable([TimeSeries_norm, array2table(TS_DataMat_norm)], norm_csv_file);
-logAndPrint(sprintf('Normalized data CSV saved to: %s', norm_csv_file));
 
-msg = sprintf('Data exported to CSV files in %s', CSV_TIMESTAMP_FOLDER);
-logAndPrint(msg);
+fprintf('STEP12: Data exported to CSV files in %s\n', CSV_TIMESTAMP_FOLDER);
+fprintf('-----------------------------\n');
 
 %% STEP13: Group Summary Statistics
 [~, TimeSeries, ~] = TS_LoadData(outputFileName);
@@ -244,46 +263,32 @@ if ismember('Group', TimeSeries.Properties.VariableNames)
     group_counts = countcats(groups);
     group_names = categories(groups);
     for i = 1:length(group_names)
-        msg = sprintf('Group %s: %d time series (%.1f%%)', group_names{i}, group_counts(i), ...
+        fprintf('STEP13: Group %s: %d time series (%.1f%%)\n', group_names{i}, group_counts(i), ...
                 100*group_counts(i)/sum(group_counts));
-        logAndPrint(msg);
     end
 else
-    msg = 'No groups found in the data';
-    logAndPrint(msg);
+    fprintf('STEP13: No groups found in the data\n');
 end
+fprintf('-----------------------------\n');
 
 %% STEP14: Final Analysis Summary
 [TS_DataMat, TimeSeries, Operations] = TS_LoadData(HCTSA_NORM_FILE);
-logAndPrint('HCTSA ANALYSIS COMPLETION SUMMARY');
-
-msg = sprintf('Normalized dataset: %s', HCTSA_NORM_FILE);
-logAndPrint(msg);
-
-msg = sprintf('Number of time series: %d', height(TimeSeries));
-logAndPrint(msg);
-
-msg = sprintf('Number of features: %d', height(Operations));
-logAndPrint(msg);
-
-msg = sprintf('Data matrix size: %d × %d', size(TS_DataMat,1), size(TS_DataMat,2));
-logAndPrint(msg);
-
-msg = sprintf('Missing values: %.2f%%', 100*sum(isnan(TS_DataMat(:)))/numel(TS_DataMat));
-logAndPrint(msg);
+fprintf('STEP14: HCTSA ANALYSIS COMPLETION SUMMARY\n');
+fprintf('STEP14: Normalized dataset: %s\n', HCTSA_NORM_FILE);
+fprintf('STEP14: Number of time series: %d\n', height(TimeSeries));
+fprintf('STEP14: Number of features: %d\n', height(Operations));
+fprintf('STEP14: Data matrix size: %d × %d\n', size(TS_DataMat,1), size(TS_DataMat,2));
+fprintf('STEP14: Missing values: %.2f%%\n', 100*sum(isnan(TS_DataMat(:)))/numel(TS_DataMat));
 
 if ismember('Group', TimeSeries.Properties.VariableNames)
     groups = TimeSeries.Group;
     unique_groups = unique(groups);
-    msg = sprintf('Groups identified: %d', length(unique_groups));
-    logAndPrint(msg);
-    
-    msg = sprintf('Classification accuracy: %.2f%%', meanAcc*100);
-    logAndPrint(msg);
+    fprintf('STEP14: Groups identified: %d\n', length(unique_groups));
+    fprintf('STEP14: Classification accuracy: %.2f%%\n', meanAcc*100);
 else
-    msg = 'Groups identified: No';
-    logAndPrint(msg);
+    fprintf('STEP14: Groups identified: No\n');
 end
+fprintf('-----------------------------\n');
 
 %% STEP15: Save Analysis Results
 % Save analysis workspace with timestamp
@@ -408,11 +413,7 @@ end
 analysis_summary_file = fullfile(LOG_FOLDER, sprintf('%s_summary_%s.mat', RESULTS_PREFIX, TIMESTAMP));
 save(analysis_summary_file, 'analysis_summary');
 
-logAndPrint('Analysis results saved:');
-logAndPrint(sprintf('  Workspace: %s', analysis_workspace_file));
-logAndPrint(sprintf('  Summary text: %s', analysis_txt_file));
-logAndPrint(sprintf('  Summary CSV: %s', analysis_csv_file));
-logAndPrint(sprintf('  Summary data: %s', analysis_summary_file));
+fprintf('STEP15: Analysis results saved to: %s\n', RESULTS_FOLDER);
 
 % Cleanup
 poolobj = gcp('nocreate');
@@ -420,11 +421,8 @@ if ~isempty(poolobj)
     delete(poolobj);
 end
 
-msg = sprintf('HCTSA Analysis Pipeline Completed: %s', TIMESTAMP_READABLE);
-logAndPrint(msg);
-
-msg = sprintf('Results saved to structured folders in: %s', RESULTS_FOLDER);
-logAndPrint(msg);
+fprintf('STEP15: HCTSA Analysis Pipeline Completed: %s\n', TIMESTAMP_READABLE);
+fprintf('-----------------------------\n');
 
 %% Local Functions
 function writeToLogFile(filename, message)
@@ -435,43 +433,19 @@ function writeToLogFile(filename, message)
     end
 end
 
-function logAndPrintToFile(filename, message)
-    % Log to both terminal and file
-    fprintf('%s\n', message);  % Print to terminal
-    fid = fopen(filename, 'a');
-    if fid > 0
-        fprintf(fid, '%s\n', message);  % Write to file
-        fclose(fid);
-    end
-end
-
 function saveAndCloseFigure(png_path, description)
-    % Create a basic log file path for error reporting
-    log_file = fullfile('results', 'logs', sprintf('hctsa_analysis_log_%s.txt', datestr(now, 'yyyymmdd_HHMMSS')));
-    
     try
         print(png_path, '-dpng', '-r300');
-        % Note: This function doesn't have access to the log file directly
-        % But the calling code will log the save operations
         close all; % Close all figures to free memory
     catch ME
-        % Log error to both terminal and file
-        error_msg = sprintf('Error saving %s: %s', description, ME.message);
-        fprintf('%s\n', error_msg);
-        if exist(log_file, 'file')
-            logAndPrintToFile(log_file, error_msg);
-        end
+        fprintf('Error saving %s: %s\n', description, ME.message);
     end
 end
 
 function manualTopFeatures(dataFile, cfnParams, numTopFeatures, txtFolder, figuresFolder, timestamp)
     % Manual implementation of top features analysis when TS_TopFeatures fails
     
-    % Create a local logging function that can access the log file
-    log_file = fullfile('results', 'logs', sprintf('hctsa_analysis_log_%s.txt', timestamp));
-    localLogAndPrint = @(msg) logAndPrintToFile(log_file, msg);
-    
-    localLogAndPrint('Starting manual top features analysis...');
+    fprintf('Starting manual top features analysis...\n');
     
     try
         % Load normalized data
@@ -479,22 +453,22 @@ function manualTopFeatures(dataFile, cfnParams, numTopFeatures, txtFolder, figur
         
         % Check if we have groups for classification
         if ~ismember('Group', TimeSeries.Properties.VariableNames)
-            localLogAndPrint('No groups found - skipping feature discrimination analysis');
+            fprintf('No groups found - skipping feature discrimination analysis\n');
             return;
         end
         
         % Get group information
         groups = TimeSeries.Group;
         uniqueGroups = unique(groups);
-        localLogAndPrint(sprintf('Found %d groups: %s', length(uniqueGroups), strjoin(cellstr(uniqueGroups), ', ')));
+        fprintf('Found %d groups: %s\n', length(uniqueGroups), strjoin(cellstr(uniqueGroups), ', '));
         
         if length(uniqueGroups) ~= 2
-            localLogAndPrint(sprintf('Manual analysis requires exactly 2 groups, found %d', length(uniqueGroups)));
+            fprintf('Manual analysis requires exactly 2 groups, found %d\n', length(uniqueGroups));
             return;
         end
         
         % Perform Mann-Whitney U test for each feature
-        localLogAndPrint(sprintf('Computing feature discriminability (Mann-Whitney U test) for %d features...', height(Operations)));
+        fprintf('Computing feature discriminability (Mann-Whitney U test) for %d features...\n', height(Operations));
         
         pValues = zeros(height(Operations), 1);
         testStats = zeros(height(Operations), 1);
@@ -502,12 +476,12 @@ function manualTopFeatures(dataFile, cfnParams, numTopFeatures, txtFolder, figur
         % Use parallel or sequential loop
         poolobj = gcp('nocreate');
         if ~isempty(poolobj)
-            localLogAndPrint(sprintf('Using parallel computing for feature analysis (%d workers)', poolobj.NumWorkers));
+            fprintf('Using parallel computing for feature analysis (%d workers)\n', poolobj.NumWorkers);
             parfor i = 1:height(Operations)
                 [pValues(i), testStats(i)] = computeFeatureTest(TS_DataMat(:, i), groups, uniqueGroups);
             end
         else
-            localLogAndPrint('Using sequential computation for feature analysis');
+            fprintf('Using sequential computation for feature analysis\n');
             for i = 1:height(Operations)
                 [pValues(i), testStats(i)] = computeFeatureTest(TS_DataMat(:, i), groups, uniqueGroups);
             end
@@ -518,14 +492,14 @@ function manualTopFeatures(dataFile, cfnParams, numTopFeatures, txtFolder, figur
         
         % Display top discriminating features
         numTopToShow = min(numTopFeatures, height(Operations));
-        localLogAndPrint(sprintf('Top %d discriminating features (manual analysis):', numTopToShow));
-        localLogAndPrint('Rank	Feature ID	Test Stat	p-value	Feature Name');
-        localLogAndPrint('----	----------	---------	-------	------------');
+        fprintf('Top %d discriminating features (manual analysis):\n', numTopToShow);
+        fprintf('Rank\tFeature ID\tTest Stat\tp-value\tFeature Name\n');
+        fprintf('----\t----------\t---------\t-------\t------------\n');
         
         for i = 1:numTopToShow
             idx = sortIdx(i);
-            localLogAndPrint(sprintf('%d	%d		%.2f		%.4f	%s', i, Operations.ID(idx), ...
-                    testStats(idx), pValues(idx), Operations.Name{idx}));
+            fprintf('%d\t%d\t\t%.2f\t\t%.4f\t%s\n', i, Operations.ID(idx), ...
+                    testStats(idx), pValues(idx), Operations.Name{idx});
         end
         
         % Save top features information with timestamp
@@ -565,16 +539,14 @@ function manualTopFeatures(dataFile, cfnParams, numTopFeatures, txtFolder, figur
         topFeatures_mat = fullfile(txtFolder, sprintf('top_features_data_%s.mat', timestamp));
         save(topFeatures_mat, 'topFeatures');
         
-        localLogAndPrint('Top features saved to:');
-        localLogAndPrint(sprintf('  Text report: %s', topFeatures_txt));
-        localLogAndPrint(sprintf('  Data file: %s', topFeatures_mat));
+        fprintf('Top features saved to text report and data file\n');
         
         % Create plots with timestamp
         createTopFeaturesPlots(TS_DataMat, TimeSeries, Operations, sortIdx, numTopToShow, uniqueGroups, figuresFolder, timestamp);
         
     catch ME
-        localLogAndPrint(sprintf('Error in manual top features analysis: %s', ME.message));
-        localLogAndPrint(sprintf('Error details: %s', ME.getReport()));
+        fprintf('Error in manual top features analysis: %s\n', ME.message);
+        fprintf('Error details: %s\n', ME.getReport());
     end
 end
 
@@ -613,10 +585,6 @@ end
 function createTopFeaturesPlots(TS_DataMat, TimeSeries, Operations, sortIdx, numTopFeatures, uniqueGroups, figuresFolder, timestamp)
     % Create basic plots for top features with timestamp
     
-    % Create a local logging function that can access the log file
-    log_file = fullfile('results', 'logs', sprintf('hctsa_analysis_log_%s.txt', timestamp));
-    localLogAndPrint = @(msg) logAndPrintToFile(log_file, msg);
-    
     try
         % Plot top 5 features
         numToPlot = min(5, numTopFeatures);
@@ -654,11 +622,11 @@ function createTopFeaturesPlots(TS_DataMat, TimeSeries, Operations, sortIdx, num
         pngFile = fullfile(figuresFolder, sprintf('top_features_histograms_%s.png', timestamp));
         print(pngFile, '-dpng', '-r300');
         
-        localLogAndPrint(sprintf('Top features plots saved to: %s', pngFile));
+        fprintf('Top features plots saved\n');
         
         close all;
         
     catch ME
-        localLogAndPrint(sprintf('Error creating plots: %s', ME.message));
+        fprintf('Error creating plots: %s\n', ME.message);
     end
 end
