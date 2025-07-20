@@ -13,7 +13,7 @@ startup; % Initialize HCTSA environment
 %% CONFIG: Feature Extraction Configuration
 NUM_WORKERS = 10;                        % Number of parallel workers
 FEATURE_SET = 'hctsa';                   % Feature set to use: 'hctsa', 'catch22', 'catch24'
-TS_DATA_FILE = 'data/hctsa_input_data/INP_gait_hctsa_chs0_all_patients.mat';            % Time series data file
+TS_DATA_FILE = 'INP_gait_hctsa_chs0_all_patients.mat';            % Time series data file
 HCTSA_OUTPUT_FILE = 'HCTSA.mat';         % Output feature matrix file
 
 fprintf('=== HCTSA Feature Extraction Pipeline ===\n');

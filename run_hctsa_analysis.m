@@ -22,7 +22,7 @@ HCTSA_NORM_FILE = 'HCTSA_N.mat';         % Normalized feature matrix file
 NORM_METHOD = 'mixedSigmoid';             % Normalization method
 FILTER_THRESHOLD = [0.7, 1.0];           % [time series threshold, operation threshold]
 CLASS_VAR_FILTER = true;                 % Filter on class variance
-GROUP_KEYWORDS = {'normalWalk', 'gaitMod'}; % Group labeling keywords
+GROUP_KEYWORDS = {'normal_walking', 'gait_modulation'}; % Group labeling keywords
 
 NUM_TOP_FEATURES = 40;
 NUM_FEATURES_DISTR = 10;
@@ -97,6 +97,35 @@ writetable(TimeSeries, fullfile(data_output_dir, 'TimeSeries.csv'));
 writetable(Operations, fullfile(data_output_dir, 'Operations.csv'));
 writetable(MasterOperations, fullfile(data_output_dir, 'MasterOperations.csv'));
 fprintf('STEP1 [TS_LoadData, TS_GetFromData]: Raw data tables exported to: %s\n', data_output_dir);
+
+fprintf('-----------------------------\n');
+
+%% STEP1b: Filtering Only (No Normalization) [TS_FilterData]
+% Save a version of HCTSA.mat with only filtering (no normalization)
+
+% Create data output directory
+data_output_dir = fullfile('data', 'hctsa_output_data');
+if ~exist(data_output_dir, 'dir')
+    mkdir(data_output_dir);
+end
+
+% Use the same filtering thresholds as for normalization, but skip normalization
+% Use TS_Normalize with 'none' normalization
+TS_Normalize('none', FILTER_THRESHOLD, HCTSA_FILENAME, false); % creates HCTSA_N.mat
+movefile('HCTSA_N.mat', 'HCTSA_F.mat'); % renames the file
+HCTSA_FILTERED_FILE = 'HCTSA_F.mat';
+
+fprintf('STEP1b [TS_FilterData/TS_Normalize]: Filtered-only HCTSA saved to: %s\n', HCTSA_FILTERED_FILE);
+
+% Export filtered data tables to filtered folder
+[TS_DataMat_filt, TimeSeries_filt, Operations_filt] = TS_LoadData(HCTSA_FILTERED_FILE);
+MasterOperations_filt = TS_GetFromData(HCTSA_FILTERED_FILE, 'MasterOperations');
+
+writetable(TimeSeries_filt, fullfile(data_output_dir, 'TimeSeries_F.csv'));
+writetable(Operations_filt, fullfile(data_output_dir, 'Operations_F.csv'));
+writetable(MasterOperations_filt, fullfile(data_output_dir, 'MasterOperations_F.csv'));
+
+fprintf('STEP1b [TS_FilterData/TS_Normalize]: Filtered data tables exported to: %s\n', data_output_dir);
 
 fprintf('-----------------------------\n');
 
@@ -213,16 +242,22 @@ end
 
 fprintf('STEP2 [TS_InspectQuality, TS_WhichProblemTS, TS_FeatureSummary]: Quality inspection completed\n');
 
+if ~exist('myColors','var')
+    myColors = {'b', 'r', 'g', 'm', 'c', 'y', 'k'};
+end
+
+
 % Feature summary of raw data
 % Use already loaded Operations data
 for i = 1:min(3, height(Operations))
     opID = Operations.ID(i);
+    fprintf('Generating feature summary for operation ID %d...\n', opID);
+    fprintf('HCTSA File: %s\n', HCTSA_FILENAME);
     TS_FeatureSummary(opID, HCTSA_FILENAME);
     png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, sprintf('05_%02d_TS_FeatureSummary_raw_op%d.png', i, opID));
     saveFigureIfExists(png_file, sprintf('Feature Summary Raw Op %d', opID));
 end
 fprintf('STEP2 [TS_InspectQuality, TS_WhichProblemTS, TS_FeatureSummary]: Feature summary of raw data completed\n');
-
 
 %% STEP3: Group Labeling [TS_LabelGroups]
 TS_LabelGroups(HCTSA_FILENAME, GROUP_KEYWORDS);
@@ -237,12 +272,6 @@ fprintf('STEP4 [TS_Normalize]: Data normalized and saved to: %s\n', normalizedDa
 % Export key data tables immediately after normalization
 [TS_DataMat_norm, TimeSeries_norm, Operations_norm] = TS_LoadData(normalizedDataFile);
 MasterOperations_norm = TS_GetFromData(normalizedDataFile, 'MasterOperations');
-
-% Create data output directory
-data_output_dir = fullfile('data', 'hctsa_output_data');
-if ~exist(data_output_dir, 'dir')
-    mkdir(data_output_dir);
-end
 
 % Export the data tables (overwrites existing files)
 writetable(TimeSeries_norm, fullfile(data_output_dir, 'TimeSeries_N.csv'));
@@ -336,8 +365,8 @@ TS_CompareFeatureSets();
 png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, '21_TS_CompareFeatureSets.png');
 saveFigureIfExists(png_file, 'Feature Sets Comparison');
 
-TS_ClassifyLowDim(normalizedDataFile, cfnParams, 5, false);
-png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, '22_TS_ClassifyLowDim_5PCs.png');
+TS_ClassifyLowDim(normalizedDataFile, cfnParams, 3, false);
+png_file = fullfile(FIGURES_TIMESTAMP_FOLDER, '22_TS_ClassifyLowDim_3PCs.png');
 saveFigureIfExists(png_file, 'Low-Dimensional Classification');
 
 fprintf('STEP10 [TS_Classify, TS_CompareFeatureSets, TS_ClassifyLowDim]: Classification accuracy: %.2f%%\n', meanAcc*100);
